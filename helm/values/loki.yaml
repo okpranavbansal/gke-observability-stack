@@ -1,0 +1,56 @@
+# Loki Helm values — GCS backend for chunk storage
+# Uses Workload Identity (no static credentials needed)
+
+loki:
+  auth_enabled: false   # single-tenant setup; enable for multi-tenant
+  storage:
+    type: gcs
+    gcs:
+      bucketnames: acme-loki-chunks-prd
+  schema_config:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: gcs
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  limits_config:
+    retention_period: 30d
+    ingestion_rate_mb: 32
+    ingestion_burst_size_mb: 64
+    max_query_series: 5000
+
+serviceAccount:
+  create: true
+  name: loki-sa
+  annotations:
+    # Workload Identity binding — SA must have roles/storage.objectAdmin on GCS bucket
+    iam.gke.io/gcp-service-account: loki@prj-acme-prd.iam.gserviceaccount.com
+
+# Promtail DaemonSet — collects logs from all pods
+promtail:
+  enabled: true
+  config:
+    clients:
+      - url: http://loki-gateway.observability.svc.cluster.local/loki/api/v1/push
+    snippets:
+      pipelineStages:
+        - docker: {}
+        - labeldrop:
+            - filename
+        - labels:
+            app:
+            namespace:
+            pod:
+
+singleBinary:
+  replicas: 1   # use distributed mode for production scale
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 2Gi

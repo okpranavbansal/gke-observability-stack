@@ -1,0 +1,71 @@
+{
+  "title": "ECS → GKE Migration Health",
+  "uid": "ecs-to-gke-migration",
+  "tags": ["migration", "ecs", "gke"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "datasource": "Prometheus",
+        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"prd-copilot\"}[5m]) > 0",
+        "titleFormat": "Deploy: {{ deployment }}"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "API Success Rate - GKE Services",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{namespace=\"prd-copilot\",status!~\"5..\"}[5m])) by (app) / sum(rate(http_requests_total{namespace=\"prd-copilot\"}[5m])) by (app) * 100",
+          "legendFormat": "{{ app }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 95,
+          "max": 100
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "API P99 Latency - GKE Services",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{namespace=\"prd-copilot\"}[5m])) by (le, app))",
+          "legendFormat": "{{ app }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 3,
+      "title": "GKE Deployment Status",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=\"prd-copilot\"}",
+          "legendFormat": "available",
+          "instant": true
+        },
+        {
+          "expr": "kube_deployment_spec_replicas{namespace=\"prd-copilot\"}",
+          "legendFormat": "desired",
+          "instant": true
+        }
+      ]
+    }
+  ]
+}

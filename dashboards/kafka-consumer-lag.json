@@ -1,0 +1,67 @@
+{
+  "title": "Kafka Consumer Lag",
+  "uid": "kafka-consumer-lag",
+  "tags": ["kafka", "confluent", "consumer"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "1m",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "consumer_group",
+        "type": "query",
+        "query": "label_values(kafka_consumer_group_lag_sum, group)",
+        "label": "Consumer Group",
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "topic",
+        "type": "query",
+        "query": "label_values(kafka_consumer_group_lag_sum{group=~\"$consumer_group\"}, topic)",
+        "label": "Topic",
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Consumer Lag by Group",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
+      "targets": [
+        {
+          "expr": "sum(kafka_consumer_group_lag_sum{group=~\"$consumer_group\", topic=~\"$topic\"}) by (group, topic)",
+          "legendFormat": "{{ group }} / {{ topic }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1000, "color": "yellow" },
+              { "value": 10000, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Max Lag per Topic (current)",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 10, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "topk(20, sum(kafka_consumer_group_lag_sum) by (group, topic))",
+          "legendFormat": "{{ group }} | {{ topic }}",
+          "instant": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+# Grafana sidecar values for loading dashboards from ConfigMaps
+# Extends the base grafana.yaml values
+
+grafana:
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: observability   # look for ConfigMaps with grafana_dashboard label in this namespace
+      label: grafana_dashboard
+      labelValue: "1"
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+
+  # Datasources auto-provisioned
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.observability.svc.cluster.local
+      access: proxy
+      isDefault: false
+      jsonData:
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: '"traceId":"(\w+)"'
+            name: TraceID
+            url: "$${__value.raw}"
+
+    - name: Tempo
+      type: tempo
+      url: http://tempo.observability.svc.cluster.local:3100
+      access: proxy
+      isDefault: false
+      uid: tempo
+      jsonData:
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true
+        tracesToLogs:
+          datasourceUid: loki
+          filterByTraceID: true
+          filterBySpanID: false
+          tags: ["app", "namespace"]
+
+  # Dashboard ConfigMaps — these are loaded from the dashboards/ directory
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: custom
+          orgId: 1
+          folder: "Wyzard"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/custom

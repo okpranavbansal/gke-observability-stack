@@ -1,0 +1,51 @@
+# Tempo distributed Helm values — GCS backend
+# Accepts OTLP traces from application services
+
+storage:
+  trace:
+    backend: gcs
+    gcs:
+      bucket_name: acme-tempo-traces-prd
+
+serviceAccount:
+  create: true
+  name: tempo-sa
+  annotations:
+    iam.gke.io/gcp-service-account: tempo@prj-acme-prd.iam.gserviceaccount.com
+
+distributor:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+ingester:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  config:
+    max_block_bytes: 524288000   # 500MB
+    max_block_duration: 30m
+
+compactor:
+  replicas: 1
+  config:
+    compaction:
+      block_retention: 336h   # 14 days
+
+querier:
+  replicas: 2
+
+queryFrontend:
+  replicas: 1
